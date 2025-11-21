@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<body>
+    <h1>Assistir vídeo</h1>
+
+    <video id="vid" width="600" controls></video>
+
+    <script>
+        const url = new URLSearchParams(location.search);
+        const id = url.get("id");
+
+        fetch("/list")
+            .then(r => r.json())
+            .then(list => {
+                const v = list.find(x => x.id == id);
+                if (!v) return alert("Vídeo não encontrado");
+
+                document.getElementById("vid").src = "/videos/" + v.filename;
+            });
+    </script>
+</body>
+</html>

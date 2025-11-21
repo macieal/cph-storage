@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<body>
+    <h1>Enviar vídeo</h1>
+    <input type="file" id="file">
+    <button onclick="upload()">Enviar</button>
+
+    <script>
+        async function upload() {
+            const file = document.getElementById("file").files[0];
+            if (!file) return alert("Selecione um vídeo");
+
+            let form = new FormData();
+            form.append("video", file);
+
+            await fetch("/upload", {
+                method: "POST",
+                body: form
+            });
+
+            alert("Enviado!");
+        }
+    </script>
+</body>
+</html>
