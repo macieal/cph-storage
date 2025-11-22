@@ -1,125 +1,78 @@
 const express = require("express");
-const multer = require("multer");
 const fs = require("fs");
+const cors = require("cors");
 const path = require("path");
-const axios = require("axios");
+const multer = require("multer");
 
 const app = express();
+const PORT = process.env.PORT || 3000;
+
+// permitir acesso
+app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// servir arquivos estáticos
 app.use(express.static("public"));
 
-const upload = multer({ dest: "temp/" });
+// pasta onde os vídeos vão ficar
+const uploadFolder = path.join(__dirname, "videos");
 
-// ====== ENV VARS (Render) ======
-const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-const GITHUB_USER = process.env.GITHUB_USER;   // "macieal"
-const GITHUB_REPO = process.env.GITHUB_REPO;   // "macieal/cph-storege"
-
-if (!GITHUB_TOKEN || !GITHUB_USER || !GITHUB_REPO) {
-    console.error("❌ ERRO: Variáveis GITHUB_TOKEN, GITHUB_USER, GITHUB_REPO não configuradas!");
+// garantir que exista
+if (!fs.existsSync(uploadFolder)) {
+  fs.mkdirSync(uploadFolder);
 }
 
-// ====== Carrega lista de vídeos ======
-function loadVideos() {
-    try {
-        return JSON.parse(fs.readFileSync("videos.json"));
-    } catch (err) {
-        return { videos: [] };
-    }
-}
-
-// ====== Salva lista ======
-function saveVideos(data) {
-    fs.writeFileSync("videos.json", JSON.stringify(data, null, 2));
-}
-
-// ====== Cria Release no GitHub (se não existir) ======
-async function ensureRelease() {
-    const url = `https://api.github.com/repos/${GITHUB_REPO}/releases/tags/videos`;
-
-    try {
-        const res = await axios.get(url, {
-            headers: { Authorization: `token ${GITHUB_TOKEN}` }
-        });
-
-        return res.data.id; // Release já existe
-    } catch (err) {
-        // Release não existe → criar
-        const res = await axios.post(
-            `https://api.github.com/repos/${GITHUB_REPO}/releases`,
-            {
-                tag_name: "videos",
-                name: "Videos Storage"
-            },
-            {
-                headers: { Authorization: `token ${GITHUB_TOKEN}` }
-            }
-        );
-
-        return res.data.id;
-    }
-}
-
-// ====== Função de upload para o GitHub ======
-async function uploadToGitHub(filePath, fileName) {
-    const releaseId = await ensureRelease();
-
-    const content = fs.readFileSync(filePath);
-
-    const url = `https://uploads.github.com/repos/${GITHUB_REPO}/releases/${releaseId}/assets?name=${fileName}`;
-
-    const res = await axios.post(url, content, {
-        headers: {
-            Authorization: `token ${GITHUB_TOKEN}`,
-            "Content-Type": "application/octet-stream"
-        }
-    });
-
-    return res.data.browser_download_url; // link permanente
-}
-
-// ====== Rota para listar vídeos ======
-app.get("/videos", (req, res) => {
-    res.json(loadVideos());
+// configurar upload
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, "videos"),
+  filename: (req, file, cb) => {
+    const unique = Date.now() + "-" + Math.floor(Math.random() * 999999);
+    const ext = path.extname(file.originalname);
+    cb(null, unique + ext);
+  }
 });
 
-// ====== Rota de upload ======
-app.post("/upload", upload.single("file"), async (req, res) => {
-    const title = req.body.title;
-    const file = req.file;
+const upload = multer({ storage });
 
-    if (!title || !file) {
-        return res.json({ success: false, error: "Título ou arquivo faltando." });
-    }
-
-    try {
-        const githubURL = await uploadToGitHub(file.path, file.originalname);
-
-        const data = loadVideos();
-
-        const id = Date.now().toString();
-
-        data.videos.push({
-            id,
-            title,
-            url: githubURL,
-            created_at: new Date().toISOString()
-        });
-
-        saveVideos(data);
-
-        fs.unlinkSync(file.path);
-
-        res.json({ success: true, url: githubURL });
-
-    } catch (err) {
-        console.error(err);
-        res.json({ success: false, error: err.message });
-    }
+// rota para listar vídeos
+app.get("/api/videos", (req, res) => {
+  fs.readFile("videos.json", "utf8", (err, data) => {
+    if (err) return res.json([]);
+    res.json(JSON.parse(data));
+  });
 });
 
-// ====== INICIAR ======
-const PORT = process.env.PORT || 3000;
+// rota para upload
+app.post("/api/upload", upload.single("video"), (req, res) => {
+  const { title } = req.body;
+  const file = req.file;
+
+  if (!file) return res.status(400).json({ error: "Nenhum arquivo enviado" });
+
+  // salvar no videos.json
+  const newVideo = {
+    id: Date.now(),
+    title: title || "Sem título",
+    filename: "/videos/" + file.filename
+  };
+
+  let current = [];
+  try {
+    current = JSON.parse(fs.readFileSync("videos.json", "utf8"));
+  } catch {}
+
+  current.push(newVideo);
+
+  fs.writeFileSync("videos.json", JSON.stringify(current, null, 2));
+
+  res.json({ success: true, video: newVideo });
+});
+
+// servir arquivos da pasta videos
+app.use("/videos", express.static("videos"));
+
+// iniciar servidor
 app.listen(PORT, () => {
-    console.log("Servidor rodando na porta " + PORT);
+  console.log("Servidor rodando na porta " + PORT);
 });
