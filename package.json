@@ -1,15 +1,11 @@
 {
-  "name": "youtube2",
+  "name": "video-storage",
   "version": "1.0.0",
   "main": "server.js",
-  "type": "commonjs",
-  "scripts": {
-    "start": "node server.js"
-  },
+  "type": "module",
   "dependencies": {
     "express": "^4.18.2",
     "multer": "1.4.5-lts.1",
-    "cors": "^2.8.5",
-    "axios": "^1.6.0"
+    "cors": "^2.8.5"
   }
 }

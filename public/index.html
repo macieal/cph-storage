@@ -1,31 +1,16 @@
 <!DOCTYPE html>
 <html>
+<head>
+    <meta charset="UTF-8">
+    <title>Videos</title>
+</head>
 <body>
-    <h1>YouTube 2</h1>
+    <h1>Lista de Vídeos</h1>
+
     <a href="upload.html">Enviar vídeo</a>
 
-    <div id="videos"></div>
+    <div id="list"></div>
 
-    <script>
-        async function load() {
-            let r = await fetch("/list");
-            let data = await r.json();
-
-            let div = document.getElementById("videos");
-            div.innerHTML = "";
-
-            data.forEach(v => {
-                div.innerHTML += `
-                    <div>
-                        <a href="watch.html?id=${v.id}">
-                            Vídeo ${v.id}
-                        </a>
-                    </div>
-                `;
-            });
-        }
-
-        load();
-    </script>
+    <script src="script.js"></script>
 </body>
 </html>
